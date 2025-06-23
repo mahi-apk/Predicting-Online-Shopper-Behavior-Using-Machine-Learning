@@ -1,0 +1,134 @@
+#data loading and preprocessing 
+df <- read.csv("C:/Users/MAHI/OneDrive/Desktop/003ass/online_shoppers_intention.csv")
+View(df)
+
+#summary
+t(summary(df))
+
+library(dplyr)
+
+# Convert Revenue and Weekend columns to integer
+df$Revenue <- as.integer(df$Revenue)
+df$Weekend <- as.integer(df$Weekend)
+
+# Convert VisitorType column
+df$VisitorType <- as.integer(case_when(
+  df$VisitorType == 'Returning_Visitor' ~ 0,
+  df$VisitorType == 'Other' ~ 2,
+  df$VisitorType == 'New_Visitor' ~ 1,
+  TRUE ~ NA_integer_
+))
+
+# Convert Month column
+df$Month <- as.integer(case_when(
+  df$Month == 'Jan' ~ 1,
+  df$Month == 'Feb' ~ 2,
+  df$Month == 'Mar' ~ 3,
+  df$Month == 'Apr' ~ 4,
+  df$Month == 'May' ~ 5,
+  df$Month == 'June' ~ 6,
+  df$Month == 'Jul' ~ 7,
+  df$Month == 'Aug' ~ 8,
+  df$Month == 'Sep' ~ 9,
+  df$Month == 'Oct' ~ 10,
+  df$Month == 'Nov' ~ 11,
+  df$Month == 'Dec' ~ 12,
+  TRUE ~ NA_integer_
+))
+
+# Correlation analysis
+library(corrplot)
+correlation_matrix <- cor(df)
+corrplot(correlation_matrix, method="color", type="upper", tl.col="black", tl.srt=45)
+
+# Feature comparison and visualizations
+library(ggplot2)
+library(gridExtra)
+
+# BounceRates vs. selected features
+features_to_compare <- c('Administrative', 'Informational', 'ProductRelated')
+selected_feature <- 'BounceRates'
+selected_df <- df[, c(features_to_compare, selected_feature)]
+
+plots <- lapply(features_to_compare, function(feature) {
+  ggplot(selected_df, aes_string(x = feature, y = selected_feature)) +
+    geom_point(color = 'skyblue') +
+    labs(title = paste(feature, "vs", selected_feature), x = feature, y = selected_feature)
+})
+grid.arrange(grobs = plots, nrow = 1)
+
+plots <- lapply(features_to_compare, function(feature) {
+  BounceRates_to_Feature <- selected_df %>%
+    group_by({{ feature }}) %>%
+    summarise(
+      minimal_BounceRates = min({{ selected_feature }}),
+      maximal_BounceRates = max({{ selected_feature }}),
+      mean_BounceRates = mean({{ selected_feature }})
+    ) %>%
+    mutate(across(everything(), round, 3))
+  
+  ggplot(BounceRates_to_Feature, aes_string(x = feature)) +
+    geom_line(aes(y = minimal_BounceRates), color = "blue", linetype = "solid") +
+    geom_line(aes(y = maximal_BounceRates), color = "red", linetype = "dashed") +
+    geom_line(aes(y = mean_BounceRates), color = "green", linetype = "dotted") +
+    labs(title = paste("Statistical Graphs:", selected_feature, "vs", feature), x = feature, y = selected_feature) +
+    theme_minimal()
+})
+grid.arrange(grobs = plots, nrow = 2)
+
+# ... (similar code for ExitRates and PageValues omitted for brevity)
+
+# Visitor type distribution
+library(plotly)
+library(dplyr)
+category_mapping <- c('Returning Visitor', 'New Visitor', 'Other')
+df$VisitorType <- factor(df$VisitorType, levels = c(0, 1, 2), labels = category_mapping)
+visitor_type_counts <- df %>% count(VisitorType) %>% rename(Count = n)
+colors <- RColorBrewer::brewer.pal(length(category_mapping), "Set1")
+fig1 <- plot_ly(visitor_type_counts, labels = ~VisitorType, values = ~Count, type = "pie", hole = 0.4, marker = list(colors = colors)) %>%
+  layout(title = "Visitor Type Distribution", xaxis = list(title = "Visitor Type"), yaxis = list(title = "No. Of Samples"))
+fig1
+
+# Revenue and Page Values over time
+library(ggplot2)
+options(repr.plot.width=18, repr.plot.height=6)
+theme_set(theme_dark())
+
+count_plot <- ggplot(df, aes(x = Month, fill = VisitorType)) +
+  geom_bar(position = "dodge") +
+  scale_fill_manual(values = c("Returning Visitor" = "orange", "New Visitor" = "yellow", "Other" = "red")) +
+  labs(title = "VisitorType Count by Month", x = "Month", y = "Count") +
+  theme(legend.position = "top")
+
+line_plot_pagevalues <- ggplot(df, aes(x = Month, y = PageValues, color = "PageValues")) +
+  geom_line() +
+  labs(title = "Line Plot of PageValues by Month", x = "Month", y = "PageValues") +
+  theme(legend.position = "none")
+
+combined_plot <- count_plot +
+  geom_line(data = df, aes(x = Month, y = Revenue, color = "Revenue")) +
+  labs(color = "Metric") +
+  scale_color_manual(values = c(PageValues = "blue", Revenue = "black"))
+
+print(combined_plot)
+
+line_plot_revenue <- ggplot(df, aes(x = Month, y = Revenue)) +
+  geom_line(color = "black") +
+  labs(title = "Line Plot of Revenue by Month", x = "Month", y = "Revenue") +
+  theme(legend.position = "top")
+
+print(line_plot_revenue)
+
+# Exploratory visualizations
+library(ggplot2)
+library(gridExtra)
+
+features_to_compare <- c('Administrative_Duration', 'Informational_Duration', 'ProductRelated_Duration')
+selected_feature <- 'PageValues'
+selected_df <- df[, c(features_to_compare, selected_feature)]
+
+plots <- lapply(1:length(features_to_compare), function(i) {
+  feature <- features_to_compare[i]
+  color <- c('darkred', 'darkgreen', 'black')[i]
+  
+  hist_plot <- ggplot(selected_df, aes_string(x =
